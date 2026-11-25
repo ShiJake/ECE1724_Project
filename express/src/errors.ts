@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import multer from "multer";
 import { ZodError } from "zod";
 
 /** Throw from a route to send `{ error: message }` with the given status. */
@@ -19,6 +20,14 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: err.message });
+    return;
+  }
+  if (err instanceof multer.MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Logo image must be 2 MB or smaller"
+        : err.message;
+    res.status(400).json({ error: message });
     return;
   }
   if (err instanceof ZodError) {

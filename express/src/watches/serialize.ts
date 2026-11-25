@@ -11,6 +11,7 @@ export function toWatchResponse(watch: Watch & { stock: Stock }) {
     purchasePrice: watch.purchasePrice,
     gainPct: watch.gainPct,
     lossPct: watch.lossPct,
+    logoUrl: watch.logoUrl,
     gainNotified: watch.gainNotified,
     lossNotified: watch.lossNotified,
     createdAt: watch.createdAt,
