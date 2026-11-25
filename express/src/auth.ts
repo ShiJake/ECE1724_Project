@@ -15,9 +15,6 @@ export const resolveSessionUserId: ResolveUserId = async (req) => {
   return session?.user.id ?? null;
 };
 
-/** Temporary development resolver. */
-export const resolveDevUserId: ResolveUserId = async () =>
-  process.env["DEV_USER_ID"] ?? null;
 
 /** Rejects the request with 401 unless a user is signed in; sets req.userId. */
 export function requireUser(resolveUserId: ResolveUserId): RequestHandler {

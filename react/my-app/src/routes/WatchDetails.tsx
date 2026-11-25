@@ -8,6 +8,7 @@ import Banner from "../components/Banner";
 import { Button } from "../components/ui/button";
 import AlertLabel from "../components/AlertLabel";
 import { Switch } from "../components/ui/switch";
+import { authClient } from "../lib/auth-client";
 
 // This will all be fetched from backend using Watch id number passed in as route param
 const empty_watch: Watch = {
@@ -30,6 +31,14 @@ export default function WatchDetails() {
 	const params = useParams();
 	const navigate = useNavigate();
 
+	const { data: session, isPending } = authClient.useSession();
+
+	useEffect(() => {
+		if (!isPending && !session) {
+			navigate("/");
+		}
+	}, [isPending, session, navigate]);
+
 	const [watch, setWatch] = useState(empty_watch);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState(false);
@@ -40,12 +49,20 @@ export default function WatchDetails() {
 	// Load watch on page refresh
 	useEffect(() => {
 		async function loadWatch() {
+			if (isPending) return;
+
+			if (!session) {
+				setLoading(false);
+				return;
+			}
+
 			try {
 				const response = await fetch(`/api/watches/${params.watchid}`);
 
 				if (!response.ok) {
-					throw new Error("Error loading watches");
+					throw new Error("Error loading watch");
 				}
+
 				const data = await response.json();
 				setWatch(data);
 			} catch {
@@ -54,11 +71,13 @@ export default function WatchDetails() {
 				setLoading(false);
 			}
 		}
+
 		loadWatch();
-	}, [params.watchid]);
+	}, [params.watchid, isPending, session]);
 
 	// Live update watch every 10 seconds
 	useEffect(() => {
+		if (isPending || !session) return;
 		async function loadWatch() {
 			if (locked) return;
 			try {
@@ -83,7 +102,7 @@ export default function WatchDetails() {
 		return () => {
 			clearInterval(intervalId);
 		}
-	}, [params.watchid, watch, locked]);
+	}, [params.watchid, watch, locked, isPending, session]);
 
 	//Update Watch submission handler
 	async function handleSubmit(payload: WatchPayload) {

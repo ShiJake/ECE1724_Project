@@ -2,83 +2,85 @@
 
 import { useState } from "react";
 import LoginForm from "../components/LoginForm";
-import type { User, LoginFormData } from "../types";
+import type { LoginFormData } from "../types";
+import { authClient } from "../lib/auth-client";
 import { useNavigate } from "react-router";
 import { Separator } from "../components/ui/separator";
 import { Button } from "../components/ui/button";
 import { formHeaderClass, clickableText, pageContainerClass, errStatusMsgClass } from "../lib/ui";
 import Banner from "../components/Banner";
 
-const TEMP_dummy_creds: User = {
-	id: "demo-user",
-	email: "abc@mail.com",
-	password: "123abc"
-}
+
 
 export default function Login() {
 	const navigate = useNavigate();
 	const [createNew, setCreateNew] = useState(false);	// Is the user logging in, or creating a new account?
 	const [message, setMessage] = useState<string | null>(null);
 
-	// Dummy function for checking account credentials
-	async function TEMP_check_credentials(form: LoginFormData) {
-		if (form.email === TEMP_dummy_creds.email && form.password == TEMP_dummy_creds.password) {
-			return {error: null};
-		} else {
-			return {error: "Error: Invalid Credentials"};
-		}
-	}
-
-	// Dummy function for seeing if account already exists
-	async function TEMP_create_new_acc(form: LoginFormData) {
-		if (form.email === TEMP_dummy_creds.email) {
-			return {error:"Error: Email already registered"};
-		}
-		if (form.username === TEMP_dummy_creds.id) {
-			return {error: "Error: Username already registered"};
-		}
-		return { error: null };
-	}
-
 	async function handleLogin(form: LoginFormData) {
-		// Validate form inputs
-		if (createNew && form.username.trim().length == 0) {
-			setMessage("Error: Please input a username");
-			return;
-    }
-		if (form.email.trim().length == 0) {
-			setMessage("Error: Please input an email");
-			return;
-		}
-		if (form.password.trim().length == 0) {
-			setMessage("Error: Please input a password");
-			return;
-		}
-		if (createNew && !(form.password === form.confirmPass)) {
-			setMessage("Error: Password and Confirm Password do not match");
-			return;
-		}
+        if (createNew && form.username.trim().length === 0) {
+                setMessage("Error: Please input a username");
+                return;
+        }
 
-		// Are we creating a new account or logging in?
-		if (!createNew) {
-			const login_result = await (TEMP_check_credentials(form));	// TODO: connect to auth
-			if (login_result.error) {
-				setMessage(login_result.error);
-			} else {
-				setMessage("Logging in...");
-				navigate(`/users/${TEMP_dummy_creds.id}`)
-			}
-		} else {
-			const create_acc_result = await (TEMP_create_new_acc(form)); // TODO: connect to auth/backend
-			if (create_acc_result.error) {
-				setMessage(create_acc_result.error);
-			} else {
-				setMessage("Creating Account...");
-				navigate(`/users/${TEMP_dummy_creds.id}`)
-			}
-		}
+        if (form.email.trim().length === 0) {
+                setMessage("Error: Please input an email");
+                return;
+        }
+
+        if (form.password.trim().length === 0) {
+                setMessage("Error: Please input a password");
+                return;
+        }
+
+        if (createNew && form.password !== form.confirmPass) {
+                setMessage("Error: Password and Confirm Password do not match");
+                return;
+        }
+
+        setMessage(createNew ? "Creating Account..." : "Logging in...");
+
+        try {
+                if (!createNew) {
+                        const result = await authClient.signIn.email({
+                                email: form.email,
+                                password: form.password,
+                        });
+
+                        if (result.error) {
+                                setMessage(`Error: ${result.error.message}`);
+                                return;
+                        }
+
+                        if (!result.data?.user) {
+                                setMessage("Error: Login failed. Please try again.");
+                                return;
+                        }
+
+                        navigate(`/users/${result.data.user.id}`);
+                } else {
+                        const result = await authClient.signUp.email({
+                                name: form.username.trim(),
+                                email: form.email,
+                                password: form.password,
+                        });
+
+                        if (result.error) {
+                                setMessage(`Error: ${result.error.message}`);
+                                return;
+                        }
+
+                        if (!result.data?.user) {
+                                setMessage("Error: Account creation failed. Please try again.");
+                                return;
+                        }
+
+                        navigate(`/users/${result.data.user.id}`);
+                }
+        } catch {
+                setMessage("Error: Unable to connect to the server. Please try again.");
+        }
 	}
-
 	return (
 		<div className={pageContainerClass}>
 			<Banner/>

@@ -96,7 +96,7 @@ Polling Finnhub is server side only. The browser never polls: it keeps one SSE c
 src/
   index.ts            starts the server
   app.ts              createApp(): middleware, routes, docs, error handling
-  auth.ts             requireUser middleware + temporary dev-user resolver
+  auth.ts             Better Auth session lookup + requireUser middleware
   db.ts               shared Prisma client
   errors.ts           HttpError and the JSON error handler
   openapi.ts          OpenAPI document (request bodies come from the Zod schemas)
@@ -109,9 +109,8 @@ tests/                Vitest + supertest API tests
 
 ## Where the other parts plug in
 
-- **Better Auth**: add Session/Account/Verification to the schema with Better Auth's Prisma
-  setup, then replace `resolveDevUserId` in `src/auth.ts` with a session lookup (sketch in the
-  TODO there). Until then every request acts as `DEV_USER_ID` from `.env`.
+- **Better Auth**: handles email/password signup and login, stores sessions using the
+  Prisma adapter, and protects user-specific API routes through session-based authentication.
 - **Cloud storage**: add a `File` model (owner, Spaces key, filename, type) with a migration.
 - **Live prices on the dashboard**: the poller can send a `price` event on the same stream
   after each update, so open pages refresh without reloading.

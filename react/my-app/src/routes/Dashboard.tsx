@@ -7,11 +7,20 @@ import type { Watch, WatchPayload} from "../types";
 import { ButtonGroup } from "../components/ui/button-group";
 import { Button } from "../components/ui/button";
 import { pageContainerClass, errorMsgClass, msgClass, buttonClass, h2Class, errStatusMsgClass, statusMsgClass } from "../lib/ui";
+import { authClient } from "../lib/auth-client";
 
 export default function Dashboard() {
 	const params = useParams();
 	const navigate = useNavigate();
-	const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const { data: session, isPending } = authClient.useSession();
+
+	useEffect(() => {
+			if (!isPending && !session) {
+					navigate("/");
+			}
+	}, [isPending, session, navigate]);
+	
 	const [watches, setWatches] = useState<Watch[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState(false);
@@ -21,26 +30,36 @@ export default function Dashboard() {
 
 	// Load watches on page refresh
 	useEffect(() => {
-		async function loadWatches() {
-			try {
-				const response = await fetch("/api/watches");
+			async function loadWatches() {
+					if (isPending) return;
 
-				if (!response.ok) {
-					throw new Error("Error loading watches")
-				}
-				const data = await response.json();
-				setWatches(data);
-			} catch {
-				setLoadError(true);
-			} finally {
-				setLoading(false);
+					if (!session) {
+							setLoading(false);
+							return;
+					}
+
+					try {
+							const response = await fetch("/api/watches");
+
+							if (!response.ok) {
+									throw new Error("Error loading watches");
+							}
+
+							const data = await response.json();
+							setWatches(data);
+					} catch {
+							setLoadError(true);
+					} finally {
+							setLoading(false);
+					}
 			}
-		}
-		loadWatches();
-	}, [])
+
+			loadWatches();
+	}, [isPending, session]);
 
 	// Live update watches every 10 seconds
 	useEffect(() => {
+		if (isPending || !session) return;
 		async function loadWatches() {
 			if (locked) return;
 			try {
@@ -66,10 +85,11 @@ export default function Dashboard() {
 		return () => {
 			clearInterval(intervalId);
 		}
-	}, [watches, locked]);
+	}, [watches, locked, isPending, session]);
 
 	async function handleLogout() {
-		navigate('/');
+			await authClient.signOut();
+			navigate("/");
 	}
 
 	async function handleCreate(payload: WatchPayload) {
