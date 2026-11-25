@@ -16,9 +16,18 @@ export default function Dashboard() {
     const { data: session, isPending } = authClient.useSession();
 
 	useEffect(() => {
-			if (!isPending && !session) {
+		if (isPending || session) return;
+
+		let cancelled = false;
+		authClient.getSession().then(({ data }) => {
+			if (!cancelled && !data) {
 				navigate("/");
 			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
 	}, [isPending, session, navigate]);
 	
 	const [watches, setWatches] = useState<Watch[]>([]);
@@ -85,7 +94,7 @@ export default function Dashboard() {
 		return () => {
 			clearInterval(intervalId);
 		};
-	}, [watches, locked, isPending, session]);
+	}, [isPending, session, locked, watches]);
 
 	async function handleLogout() {
 			await authClient.signOut();

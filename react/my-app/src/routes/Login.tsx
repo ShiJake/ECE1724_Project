@@ -12,8 +12,10 @@ import Banner from "../components/Banner";
 
 
 
+
 export default function Login() {
 	const navigate = useNavigate();
+        const { refetch } = authClient.useSession();
 	const [createNew, setCreateNew] = useState(false);	// Is the user logging in, or creating a new account?
 	const [message, setMessage] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export default function Login() {
                                 setMessage("Error: Login failed. Please try again.");
                                 return;
                         }
-
+                        await refetch();
                         navigate(`/users/${result.data.user.id}`);
                 } else {
                         const result = await authClient.signUp.email({
@@ -74,7 +76,7 @@ export default function Login() {
                                 setMessage("Error: Account creation failed. Please try again.");
                                 return;
                         }
-
+                        await refetch();
                         navigate(`/users/${result.data.user.id}`);
                 }
         } catch {
