@@ -13,7 +13,19 @@ describe("API documentation", () => {
     expect(methods("/api/watches/{id}")).toEqual(["delete", "get", "patch"]);
     expect(methods("/api/watches/{id}/prices")).toEqual(["get"]);
     expect(methods("/api/watches/{id}/prices.csv")).toEqual(["get"]);
+    expect(methods("/api/watches/portfolio.json")).toEqual(["get"]);
+    expect(methods("/api/watches/portfolio/import")).toEqual(["post"]);
     expect(methods("/api/alerts/stream")).toEqual(["get"]);
+  });
+
+  it("documents the portfolio download and import with one shared schema", async () => {
+    const res = await request(app).get("/api/openapi.json");
+    const download = res.body.paths["/api/watches/portfolio.json"]?.get?.responses?.["200"];
+    const upload = res.body.paths["/api/watches/portfolio/import"]?.post?.requestBody;
+    const ref = { $ref: "#/components/schemas/Portfolio" };
+    expect(download?.content?.["application/json"]?.schema).toEqual(ref);
+    expect(upload?.content?.["application/json"]?.schema).toEqual(ref);
+    expect(res.body.components.schemas.Portfolio.required).toContain("watches");
   });
 
   it("documents the alert stream as server-sent events", async () => {

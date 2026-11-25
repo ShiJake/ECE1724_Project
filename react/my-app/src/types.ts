@@ -22,6 +22,12 @@ export type Watch = {
 	changePct: number;
 }
 
+// For use with price history
+export type priceData = {
+	date: string;
+	price: number;
+}
+
 // For Frontend Form States
 export type LoginFormData = {
 	username: string;
