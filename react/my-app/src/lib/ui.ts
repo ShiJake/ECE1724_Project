@@ -24,7 +24,7 @@ export const buttonClass = "border-2 rounded-full text-gray-200 hover:font-bold 
 export const submitClass = "border-2 rounded-full text-gray-200 hover:text-green-300 hover:font-bold bg-cyan-900 border-cyan-600 hover:border-green-600 hover:shadow-md hover:shadow-green-400";
 export const cancelClass = "border-2 rounded-full text-gray-200 hover:text-red-400 hover:font-bold bg-cyan-900 border-cyan-600 hover:border-red-700 hover:shadow-md hover:shadow-red-400";
 
-export const tableClass = "w-full border-collapse";
+export const tableClass = "w-full border-collapse ";
 export const tableHeaderClass = "w-1/7 p-1 border-2 lg:text-lg text-sm border-cyan-950 bg-cyan-600";
 export const tableEntryClass = "w-1/7 p-1 border-2 lg:text-xl text-md border-cyan-950 bg-gray-700 text-gray-300";
 
