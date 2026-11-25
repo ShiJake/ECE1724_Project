@@ -165,6 +165,28 @@ export default function WatchDetails() {
     }
 	}
 
+	// Handle price csv download
+	async function handleDownload() {
+		try {
+			const response = await fetch(`/api/watches/${params.watchid}/prices.csv`);
+			if (!response.ok) {
+				throw new Error("Error downloading portfolio");
+			}
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = `${watch.ticker}_price_history.csv`;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(url);
+			setStatusMsg("Downloaded price history CSV");
+		} catch {
+			setStatusMsg("Error downloading price history");
+		}
+	}
+
 	return (
 		<div className={pageContainerClass}>
 			<Banner/>
@@ -182,14 +204,6 @@ export default function WatchDetails() {
 							<p className={h2Class}>Stock Watch Summary</p>
 						</div>
 						<div>
-							{/*Dismissable status/error messages*/}
-							{statusMsg && <Button
-								type='button'
-								onClick={() => setStatusMsg(null)}
-								className={`mb-3 p-2 border-2 rounded-full bg-gray-200  border-cyan-800 ${statusMsg.includes('Error') ? errStatusMsgClass : statusMsgClass}`}
-							>
-								{statusMsg}
-							</Button>}
 							<table className={tableClass}>
 								<tr>
 									<th className={tableHeaderClass}>Purchased Price</th>
@@ -219,11 +233,17 @@ export default function WatchDetails() {
 								</tr>
 							</table>
 						</div>
+						{/*Dismissable status/error messages*/}
+						{statusMsg && <Button
+							type='button'
+							onClick={() => setStatusMsg(null)}
+							className={`mb-3 p-2 border-2 rounded-full bg-gray-200  border-cyan-800 ${statusMsg.includes('Error') ? errStatusMsgClass : statusMsgClass}`}
+						>{statusMsg}</Button>}
 						{/*price history chart*/}
 						{loadingHist ? <div className={msgClass}>Loading Price History...</div>
 							: histError ? <div className={errorMsgClass}>Error Loading Price History</div>
 							: priceData.length < 2? <div className={msgClass}>Not Enough Data to Generate Price History</div>
-							: <Chart data={priceData} gainThresh={watch.purchasePrice*(1+watch.gainPct/100)} lossThresh={watch.purchasePrice*(1+watch.lossPct/100)}/>
+							: <Chart data={priceData} gainThresh={watch.purchasePrice * (1 + watch.gainPct / 100)} lossThresh={watch.purchasePrice * (1 + watch.lossPct / 100)} handleDownload={handleDownload} />
 						}
 						<WatchForm
 							watch={{

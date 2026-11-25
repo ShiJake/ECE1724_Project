@@ -7,7 +7,8 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+	CardTitle,
+  CardFooter
 } from "./ui/card"
 import {
   ChartContainer,
@@ -15,6 +16,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "./ui/chart"
+import { Button } from "./ui/button"
+import { buttonClass } from "../lib/ui"
 
 const chartConfig = {
   desktop: {
@@ -27,9 +30,10 @@ type ChartProps = {
 	data: { date: string, price: number }[];
 	gainThresh: number;
 	lossThresh: number;
+	handleDownload: () => void;
 }
 
-export function Chart({data, gainThresh, lossThresh}:ChartProps) {
+export function Chart({data, gainThresh, lossThresh, handleDownload}:ChartProps) {
   return (
     <Card className="w-5/6 bg-gray-800 text-gray-300">
       <CardHeader>
@@ -87,6 +91,10 @@ export function Chart({data, gainThresh, lossThresh}:ChartProps) {
           </LineChart>
         </ChartContainer>
       </CardContent>
-    </Card>
+      <CardFooter className="flex justify-center">
+				<Button type='button' onClick={handleDownload} className={buttonClass}>Download Price History</Button>
+      </CardFooter>
+		</Card>
+
   )
 }
