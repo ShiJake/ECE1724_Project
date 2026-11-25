@@ -76,8 +76,8 @@ export default function WatchDetails() {
 			}
 		}
 
-		loadWatch();
 		loadPriceHist();
+		loadWatch();
 	}, [params.watchid]);
 
 	// Live update watch every 10 seconds
