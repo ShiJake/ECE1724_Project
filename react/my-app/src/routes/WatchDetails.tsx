@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import type { Watch, WatchPayload} from "../types";
+import { type priceData, type Watch, type WatchPayload} from "../types";
 import WatchForm from "../components/WatchForm";
 import { pageContainerClass, msgClass, errorMsgClass, h2Class, tickerClass, tableClass, tableHeaderClass, tableEntryClass, buttonClass, errStatusMsgClass, statusMsgClass } from "../lib/ui";
 import ChangePctLabel from "../components/ChangePctLabel";
@@ -46,7 +46,7 @@ export default function WatchDetails() {
 	const [statusMsg, setStatusMsg] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);	// used when updating alert display
 	const [locked, setLocked] = useState(false);					// used for race conditions
-	const [priceData, setPriceData] = useState([]);				// for price history chart
+	const [priceData, setPriceData] = useState<priceData[]>([]);				// for price history chart
 	const [loadingHist, setLoadingHist] = useState(true);
 	const [histError, setHistError] = useState(false);
 
@@ -85,7 +85,7 @@ export default function WatchDetails() {
 				}
 				// Convert the csv string into an array of JSON objects
 				const data = await response.text();
-				setPriceData(data.split('\n').slice(1, -1).map((row) => ({ date: new Date(row.split(',')[0]).toLocaleString(), price: row.split(',')[1] })));
+				setPriceData(data.split('\n').slice(1, -1).map((row) => ({ date: new Date(row.split(',')[0]).toLocaleString(), price: Number(row.split(',')[1]) })));
 			} catch {
 				setHistError(true);
 			} finally {
