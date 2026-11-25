@@ -16,6 +16,9 @@ export default function Login() {
 	const navigate = useNavigate();
 	const [createNew, setCreateNew] = useState(false);	// Is the user logging in, or creating a new account?
 	const [message, setMessage] = useState<string | null>(null);
+	// The dashboard sends you back here if the cached session is empty, and after a logout it
+	// still is. Refreshing it before navigating makes the dashboard see the new login.
+	const { refetch: refreshSession } = authClient.useSession();
 
 	async function handleLogin(form: LoginFormData) {
         if (createNew && form.username.trim().length === 0) {
@@ -57,6 +60,7 @@ export default function Login() {
                                 return;
                         }
 
+                        await refreshSession();
                         navigate(`/users/${result.data.user.id}`);
                 } else {
                         const result = await authClient.signUp.email({
@@ -75,6 +79,7 @@ export default function Login() {
                                 return;
                         }
 
+                        await refreshSession();
                         navigate(`/users/${result.data.user.id}`);
                 }
         } catch {
