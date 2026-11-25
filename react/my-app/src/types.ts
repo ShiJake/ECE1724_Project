@@ -11,6 +11,7 @@ export type Watch = {
 	purchasePrice: number;
 	gainPct: number;
 	lossPct: number;
+	logoUrl?: string | null;
 	gainNotified: boolean;
 	lossNotified: boolean;
 	createdAt: string;	// Dates as ISO Strings

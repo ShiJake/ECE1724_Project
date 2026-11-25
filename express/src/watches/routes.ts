@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-
+import multer from "multer";
 import { prisma } from "../db";
 import { HttpError } from "../errors";
 import {
@@ -8,9 +8,35 @@ import {
   serializePortfolioJson,
 } from "../storage/portfolio";
 import { serializePriceHistoryCsv } from "../storage/priceHistory";
-import { getSpacesConfig } from "../storage/spaces";
+import {
+  downloadBinaryObject,
+  getSpacesConfig,
+  getWatchLogoObjectKey,
+  uploadBinaryObject,
+} from "../storage/spaces";
 import { createWatchSchema, updateWatchSchema, watchIdSchema } from "./schemas";
 import { toWatchResponse } from "./serialize";
+
+
+const MIME_TO_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+};
+
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (MIME_TO_EXT[file.mimetype]) {
+      cb(null, true);
+    } else {
+      cb(new HttpError(400, "Unsupported image type"));
+    }
+  },
+});
+
 
 /** Routes under /api/watches. Each one only touches the signed-in user's watches. */
 export const watchesRouter = Router();
@@ -159,6 +185,47 @@ watchesRouter.post("/", async (req, res) => {
 
 watchesRouter.get("/:id", async (req, res) => {
   res.json(toWatchResponse(await findOwnWatch(req)));
+});
+
+watchesRouter.post("/:id/logo", logoUpload.single("logo"), async (req, res) => {
+  const watch = await findOwnWatch(req);
+
+  if (!req.file) {
+    throw new HttpError(400, "Logo image file is required");
+  }
+
+  const ext = MIME_TO_EXT[req.file.mimetype];
+  if (!ext) {
+    throw new HttpError(400, "Unsupported image format");
+  }
+
+  const objectKey = getWatchLogoObjectKey(req.userId, watch.id, ext);
+  await uploadBinaryObject(objectKey, req.file.buffer, req.file.mimetype);
+
+  const updated = await prisma.watch.update({
+    where: { id: watch.id },
+    data: { logoUrl: objectKey },
+    include: { stock: true },
+  });
+
+  res.json(toWatchResponse(updated));
+});
+
+watchesRouter.get("/:id/logo", async (req, res) => {
+  const watch = await findOwnWatch(req);
+
+  if (!watch.logoUrl) {
+    throw new HttpError(404, "Logo not found");
+  }
+
+  const objectData = await downloadBinaryObject(watch.logoUrl);
+  if (!objectData) {
+    throw new HttpError(404, "Logo not found");
+  }
+
+  res.setHeader("Content-Type", objectData.contentType || "application/octet-stream");
+  res.setHeader("Cache-Control", "private, max-age=60");
+  res.send(objectData.body);
 });
 
 /** The watch's stock prices since the watch was created, oldest first. */

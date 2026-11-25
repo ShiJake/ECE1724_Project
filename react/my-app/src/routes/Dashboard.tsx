@@ -17,7 +17,7 @@ export default function Dashboard() {
 
 	useEffect(() => {
 			if (!isPending && !session) {
-					navigate("/");
+				navigate("/");
 			}
 	}, [isPending, session, navigate]);
 	
@@ -68,7 +68,7 @@ export default function Dashboard() {
 				const response = await fetch("/api/watches");
 
 				if (!response.ok) {
-					throw new Error("Error loading watches")
+					throw new Error("Error loading watches");
 				}
 				const data = await response.json();
 				setWatches(data);
@@ -84,7 +84,7 @@ export default function Dashboard() {
 		}, 10000);
 		return () => {
 			clearInterval(intervalId);
-		}
+		};
 	}, [watches, locked, isPending, session]);
 
 	async function handleLogout() {
@@ -121,7 +121,7 @@ export default function Dashboard() {
 		try {
 			setLocked(true);
 			const response = await fetch(`/api/watches/${id}`, {
-				method: "DELETE"
+				method: "DELETE",
 			});
 
 			if (!response.ok) {
@@ -210,14 +210,16 @@ export default function Dashboard() {
 				{/*Non-Dismissable Status/Error messages + WatchCard list*/}
 				{loading ? (
 					<div className={msgClass}>Loading StockWatches...</div>
-	      ) : loadError ? (
-	        <div className={errorMsgClass}>Error Loading StockWatches</div>
-					) : watches.length == 0 ? (
-						<div className={msgClass}>No StockWatches Found</div>
-	      ) : (watches.map((watch) => (
+				) : loadError ? (
+					<div className={errorMsgClass}>Error Loading StockWatches</div>
+							) : watches.length == 0 ? (
+								<div className={msgClass}>No StockWatches Found</div>
+				) : (watches.map((watch) => (
 					<WatchCard
+						key={watch.id}
 						id={watch.id}
 						ticker={watch.ticker}
+						logoUrl={watch.logoUrl}
 						triggered={watch.gainNotified || watch.lossNotified}
 						changePct={watch.changePct}
 						locked={locked}

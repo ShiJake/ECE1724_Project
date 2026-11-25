@@ -1,8 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { type priceData, type Watch, type WatchPayload} from "../types";
 import WatchForm from "../components/WatchForm";
-import { pageContainerClass, msgClass, errorMsgClass, h2Class, tickerClass, tableClass, tableHeaderClass, tableEntryClass, buttonClass, errStatusMsgClass, statusMsgClass } from "../lib/ui";
+import {
+	pageContainerClass,
+	msgClass,
+	errorMsgClass,
+	h2Class,
+	tickerClass,
+	tableClass,
+	tableHeaderClass,
+	tableEntryClass,
+	buttonClass,
+	errStatusMsgClass,
+	statusMsgClass,
+} from "../lib/ui";
 import ChangePctLabel from "../components/ChangePctLabel";
 import Banner from "../components/Banner";
 import { Button } from "../components/ui/button";
@@ -15,6 +27,7 @@ import { authClient } from "../lib/auth-client";
 const empty_watch: Watch = {
 	id: -1,
 	ticker: "XYZ",
+	logoUrl: null,
 	purchasePrice: 0,
 	gainPct:0,
 	lossPct:0,
@@ -25,8 +38,8 @@ const empty_watch: Watch = {
 	currentPrice: 0,
 	priceUpdatedAt: "",
 	changeAmount: 0,
-	changePct: 0
-}
+	changePct: 0,
+};
 
 export default function WatchDetails() {
 	const params = useParams();
@@ -45,7 +58,10 @@ export default function WatchDetails() {
 	const [loadError, setLoadError] = useState(false);
 	const [statusMsg, setStatusMsg] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);	// used when updating alert display
+	const [uploadingLogo, setUploadingLogo] = useState(false);
+	const [logoVersion, setLogoVersion] = useState(0);
 	const [locked, setLocked] = useState(false);					// used for race conditions
+	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const [priceData, setPriceData] = useState<priceData[]>([]);				// for price history chart
 	const [loadingHist, setLoadingHist] = useState(true);
 	const [histError, setHistError] = useState(false);
@@ -123,7 +139,7 @@ export default function WatchDetails() {
 		}, 10000);
 		return () => {
 			clearInterval(intervalId);
-		}
+		};
 	}, [params.watchid, watch, locked, isPending, session]);
 
 	//Update Watch submission handler
@@ -136,17 +152,17 @@ export default function WatchDetails() {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
-			})
+			});
 
 			if (!response.ok) {
 				throw new Error("Error updating watch");
 			}
 
-			const data = await response.json()
+			const data = await response.json();
 			setWatch(data);
-			setStatusMsg("Updated Watch")
+			setStatusMsg("Updated Watch");
 		} catch {
-			setStatusMsg("Error updating watch")
+			setStatusMsg("Error updating watch");
 		} finally {
 			setSubmitting(false);
 			setLocked(false);
@@ -158,7 +174,12 @@ export default function WatchDetails() {
 		//If submitting is true, the notifs will be reset by the other submission process
 		if (locked) return;
 		// Send a copy of the watch as a WatchPayload to trigger alert reset
-		const payload: WatchPayload = { ticker: watch.ticker, purchasePrice: watch.purchasePrice, gainPct: watch.gainPct, lossPct: watch.lossPct };
+		const payload: WatchPayload = {
+			ticker: watch.ticker,
+			purchasePrice: watch.purchasePrice,
+			gainPct: watch.gainPct,
+			lossPct: watch.lossPct,
+		};
 
 		try {
 			setSubmitting(true);
@@ -167,7 +188,7 @@ export default function WatchDetails() {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
-			})
+			});
 			if (!response.ok) {
 				throw new Error("Error resetting alerts");
 			}
@@ -180,8 +201,45 @@ export default function WatchDetails() {
 		} finally {
 			setSubmitting(false);
 			setLocked(false);
-    }
+    	}
 	}
+
+	async function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
+		const file = event.target.files?.[0];
+		event.target.value = "";
+		if (!file || locked || uploadingLogo) return;
+
+		const formData = new FormData();
+		formData.append("logo", file);
+
+		try {
+			setUploadingLogo(true);
+			setLocked(true);
+			const response = await fetch(`/api/watches/${params.watchid}/logo`, {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				throw new Error("Error uploading logo");
+			}
+
+			const data = await response.json();
+			setWatch((prev) => ({
+				...prev,
+				...data,
+				logoUrl: data.logoUrl ?? prev.logoUrl,
+			}));
+			setLogoVersion((prev) => prev + 1);
+			setStatusMsg("Uploaded Logo");
+		} catch {
+			setStatusMsg("Error uploading logo");
+		} finally {
+			setUploadingLogo(false);
+			setLocked(false);
+		}
+	}
+
 
 	// Handle price csv download
 	async function handleDownload() {
@@ -217,11 +275,47 @@ export default function WatchDetails() {
 				) : (
 					<div className="flex-col justify-items-center space-y-10 mb-2">
 						{/*Pack ticker and subheader in a div as seperate elements so ticker can be styled seperately*/}
-						<div className="flex space-x-2">
+						<div className="flex flex-wrap items-center justify-center gap-3">
+							{watch.logoUrl ? (
+								<img
+									src={`/api/watches/${watch.id}/logo?v=${logoVersion}`}
+									alt={`${watch.ticker} logo`}
+									className="w-12 h-12 rounded-full object-cover border-2 border-cyan-900 bg-white shrink-0"
+								/>
+							) : (
+								<div className="w-12 h-12 rounded-full border-2 border-cyan-900 bg-cyan-800 text-white font-bold flex items-center justify-center shrink-0">
+									{watch.ticker.slice(0, 2).toUpperCase()}
+								</div>
+							)}
 							<p className={`${tickerClass} lg:text-3xl text-2xl`}>{watch.ticker}</p>
 							<p className={h2Class}>Stock Watch Summary</p>
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept="image/png,image/jpeg,image/webp,image/svg+xml"
+								onChange={handleLogoChange}
+								className="hidden"
+							/>
+							<Button
+								type="button"
+								disabled={locked || uploadingLogo}
+								onClick={() => fileInputRef.current?.click()}
+								className={buttonClass}
+							>
+								{uploadingLogo ? "Uploading..." : "Upload Logo"}
+							</Button>
 						</div>
 						<div>
+							{/*Dismissable status/error messages*/}
+							{statusMsg && (
+								<Button
+									type="button"
+									onClick={() => setStatusMsg(null)}
+									className={`mb-3 p-2 border-2 rounded-full bg-gray-200 border-cyan-800 ${statusMsg.includes("Error") ? errStatusMsgClass : statusMsgClass}`}
+								>
+									{statusMsg}
+								</Button>
+							)}
 							<table className={tableClass}>
 								<tr>
 									<th className={tableHeaderClass}>Purchased Price</th>
@@ -245,7 +339,7 @@ export default function WatchDetails() {
 											disabled={submitting || (!watch.gainNotified && !watch.lossNotified)}
 											checked={!watch.gainNotified && !watch.lossNotified}
 											onCheckedChange={()=>handleNotifReset()}
-											className={`border-3 ${watch.gainNotified || watch.lossNotified ? 'border-amber-500 hover:shadow-md hover:shadow-yellow-600': ''}`}
+											className={`border-3 ${watch.gainNotified || watch.lossNotified ? "border-amber-500 hover:shadow-md hover:shadow-yellow-600" : ""}`}
 										/>
 									</td>
 								</tr>

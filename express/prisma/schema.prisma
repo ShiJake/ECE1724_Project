@@ -55,6 +55,7 @@ model Watch {
   gainPct       Float
   /// Alert when the price falls to this percent from purchase (<= 0, e.g. -5).
   lossPct       Float
+  logoUrl       String?
   /// Notification status: set by the poller once that side's alert fires so it
   /// is not repeated every cycle; cleared when the user edits the watch.
   gainNotified  Boolean  @default(false)

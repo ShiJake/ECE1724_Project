@@ -147,3 +147,79 @@ export async function deleteObject(
     }),
   );
 }
+
+export function getWatchLogoObjectKey(
+  userId: string,
+  watchId: number,
+  extension: string,
+): string {
+  const safeExt = extension.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "png";
+  return `logos/${sanitizeSegment(userId)}/watch-${watchId}-${Date.now()}.${safeExt}`;
+}
+
+export async function uploadBinaryObject(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+  client?: S3Client,
+  config?: SpacesConfig | null,
+): Promise<string> {
+  const resolvedConfig = config ?? getSpacesConfig();
+  if (!resolvedConfig) {
+    throw new Error("DigitalOcean Spaces configuration is incomplete");
+  }
+  const resolvedClient = client ?? createSpacesClient(resolvedConfig);
+
+  await resolvedClient.send(
+    new PutObjectCommand({
+      Bucket: resolvedConfig.bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+
+  return key;
+}
+
+export async function downloadBinaryObject(
+  key: string,
+  client?: S3Client,
+  config?: SpacesConfig | null,
+): Promise<{ body: Uint8Array; contentType?: string } | null> {
+  const resolvedConfig = config ?? getSpacesConfig();
+  if (!resolvedConfig) {
+    throw new Error("DigitalOcean Spaces configuration is incomplete");
+  }
+  const resolvedClient = client ?? createSpacesClient(resolvedConfig);
+
+  try {
+    const response = await resolvedClient.send(
+      new GetObjectCommand({
+        Bucket: resolvedConfig.bucket,
+        Key: key,
+      }),
+    );
+
+    if (!response.Body) {
+      return null;
+    }
+
+    const bytes =
+      typeof (response.Body as { transformToByteArray?: () => Promise<Uint8Array> }).transformToByteArray ===
+      "function"
+        ? await (response.Body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray()
+        : new Uint8Array(await new Response(response.Body as Readable).arrayBuffer());
+
+    return {
+      body: bytes,
+      contentType: response.ContentType,
+    };
+  } catch (error: unknown) {
+    const err = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (err?.name === "NoSuchKey" || err?.$metadata?.httpStatusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
