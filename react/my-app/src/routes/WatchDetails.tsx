@@ -273,7 +273,7 @@ export default function WatchDetails() {
 				) : loadError ? (
 					<div className={errorMsgClass}>Error Loading StockWatch</div>
 				) : (
-					<div className="flex-col justify-items-center space-y-10 mb-2">
+					<div className="flex-col justify-items-center space-y-5 mb-2">
 						{/*Pack ticker and subheader in a div as seperate elements so ticker can be styled seperately*/}
 						<div className="flex flex-wrap items-center justify-center gap-3">
 							{watch.logoUrl ? (
@@ -306,16 +306,6 @@ export default function WatchDetails() {
 							</Button>
 						</div>
 						<div>
-							{/*Dismissable status/error messages*/}
-							{statusMsg && (
-								<Button
-									type="button"
-									onClick={() => setStatusMsg(null)}
-									className={`mb-3 p-2 border-2 rounded-full bg-gray-200 border-cyan-800 ${statusMsg.includes("Error") ? errStatusMsgClass : statusMsgClass}`}
-								>
-									{statusMsg}
-								</Button>
-							)}
 							<table className={tableClass}>
 								<tr>
 									<th className={tableHeaderClass}>Purchased Price</th>
@@ -349,7 +339,7 @@ export default function WatchDetails() {
 						{statusMsg && <Button
 							type='button'
 							onClick={() => setStatusMsg(null)}
-							className={`mb-3 p-2 border-2 rounded-full bg-gray-200  border-cyan-800 ${statusMsg.includes('Error') ? errStatusMsgClass : statusMsgClass}`}
+							className={`h-min p-2 border-2 rounded-full bg-gray-200  border-cyan-800 ${statusMsg.includes('Error') ? errStatusMsgClass : statusMsgClass}`}
 						>{statusMsg}</Button>}
 						{/*price history chart*/}
 						{loadingHist ? <div className={msgClass}>Loading Price History...</div>
