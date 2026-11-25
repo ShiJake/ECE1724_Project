@@ -8,6 +8,7 @@ import Banner from "../components/Banner";
 import { Button } from "../components/ui/button";
 import AlertLabel from "../components/AlertLabel";
 import { Switch } from "../components/ui/switch";
+import { Chart } from "../components/Chart";
 
 // This will all be fetched from backend using Watch id number passed in as route param
 const empty_watch: Watch = {
@@ -36,8 +37,11 @@ export default function WatchDetails() {
 	const [statusMsg, setStatusMsg] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);	// used when updating alert display
 	const [locked, setLocked] = useState(false);					// used for race conditions
+	const [priceData, setPriceData] = useState([]);				// for price history chart
+	const [loadingHist, setLoadingHist] = useState(true);
+	const [histError, setHistError] = useState(false);
 
-	// Load watch on page refresh
+	// Load watch and price history data on page refresh
 	useEffect(() => {
 		async function loadWatch() {
 			try {
@@ -54,7 +58,26 @@ export default function WatchDetails() {
 				setLoading(false);
 			}
 		}
+
+		async function loadPriceHist() {
+			try {
+				const response = await fetch(`/api/watches/${params.watchid}/prices.csv`);
+
+				if (!response.ok) {
+					throw new Error("Error loading price history data");
+				}
+				// Convert the csv string into an array of JSON objects
+				const data = await response.text();
+				setPriceData(data.split('\n').slice(1, -1).map((row) => ({ date: new Date(row.split(',')[0]).toLocaleString(), price: row.split(',')[1] })));
+			} catch {
+				setHistError(true);
+			} finally {
+				setLoadingHist(false);
+			}
+		}
+
 		loadWatch();
+		loadPriceHist();
 	}, [params.watchid]);
 
 	// Live update watch every 10 seconds
@@ -196,6 +219,12 @@ export default function WatchDetails() {
 								</tr>
 							</table>
 						</div>
+						{/*price history chart*/}
+						{loadingHist ? <div className={msgClass}>Loading Price History...</div>
+							: histError ? <div className={errorMsgClass}>Error Loading Price History</div>
+							: priceData.length < 2? <div className={msgClass}>Not Enough Data to Generate Price History</div>
+							: <Chart data={priceData} gainThresh={watch.purchasePrice*(1+watch.gainPct/100)} lossThresh={watch.purchasePrice*(1+watch.lossPct/100)}/>
+						}
 						<WatchForm
 							watch={{
 								ticker: watch.ticker,
