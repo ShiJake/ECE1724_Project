@@ -1,5 +1,6 @@
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
+import { portfolioExportSchema } from "./storage/portfolio";
 import { createWatchSchema, updateWatchSchema, watchIdSchema } from "./watches/schemas";
 
 
@@ -10,6 +11,7 @@ const registry = new OpenAPIRegistry();
 
 const CreateWatch = createWatchSchema.meta({ id: "CreateWatch" });
 const UpdateWatch = updateWatchSchema.meta({ id: "UpdateWatch" });
+const Portfolio = portfolioExportSchema.meta({ id: "Portfolio" });
 
 const Watch = z
   .object({
@@ -154,6 +156,41 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: "get",
+  path: "/api/watches/portfolio.json",
+  tags: ["Portfolio"],
+  summary: "Download all of the user's watches as a portfolio file",
+  description:
+    "Returns `portfolio.json` as a download. When the `DO_SPACES_*` settings are set, a copy " +
+    "is also saved to DigitalOcean Spaces at `users/<userId>/portfolio.json`; if that upload " +
+    "fails, the download still works.",
+  responses: {
+    200: { description: "Portfolio file", content: json(Portfolio) },
+    401: errors[401],
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/watches/portfolio/import",
+  tags: ["Portfolio"],
+  summary: "Add every watch in a portfolio file to the user's watches",
+  description:
+    "Takes the file from the download endpoint. The text of the file can also be sent as " +
+    "`{ \"json\": \"<file contents>\" }`. Each watch is validated like `POST /api/watches`, and " +
+    "they are all created together or not at all. Existing watches are kept.",
+  request: { body: { content: json(Portfolio) } },
+  responses: {
+    201: { description: "The watches that were created", content: json(z.array(Watch)) },
+    400: {
+      description: "Invalid file, invalid watch, or no watches",
+      content: json(z.union([ValidationError, ErrorBody])),
+    },
+    401: errors[401],
+  },
+});
+
 const alertStreamExample = [
   "event: connected",
   'data: {"userId":"demo-user","connectedAt":"2026-11-23T15:00:00.000Z"}',
@@ -190,8 +227,10 @@ export function buildOpenApiDocument() {
       title: "Stock Watch API",
       version: "0.1.0",
       description:
-        "REST API for stock watches. Every /api/watches route requires a signed-in " +
-        "user and only returns that user's data.",
+        "REST API for stock watches. Every /api/watches and /api/alerts route requires a " +
+        "signed-in user and only returns that user's data. Sign in with Better Auth at " +
+        "`POST /api/auth/sign-in/email` (`{ email, password }`); the browser then sends the " +
+        "session cookie with each request.",
     },
   });
 }
