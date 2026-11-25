@@ -206,7 +206,7 @@ export default function Dashboard() {
 		<div className={pageContainerClass}>
 			<Banner/>
 			<div className='flex-col justify-items-center lg:w-2/3 w-full px-5 py-3 space-y-6 border-3 rounded-lg bg-blue-200  border-cyan-900 '>
-				<h2 className={h2Class}>{`Welcome Back ${params.id}`}</h2>
+				<h2 className={h2Class}>{`Welcome Back ${session?.user.name ?? ""}`}</h2>
 				{/*Non-Dismissable Status/Error messages + WatchCard list*/}
 				{loading ? (
 					<div className={msgClass}>Loading StockWatches...</div>

@@ -29,6 +29,11 @@ The test database is created by `docker/init-test-db.sql`, which only runs the f
 volume is created. If you started the container before that file existed, run
 `docker compose down -v` and `docker compose up -d` again (this wipes local data).
 
+If Docker won't run, `npx prisma dev` starts a local Postgres instead; point `DATABASE_URL` and
+`TEST_DATABASE_URL` at the URL it prints. That database drops connections that overlap, which
+shows up as random 500s (login bouncing back to the login page), so also set
+`DATABASE_POOL_MAX=1` to make the backend use one connection at a time.
+
 ## Scripts
 
 | Command | What it does |
