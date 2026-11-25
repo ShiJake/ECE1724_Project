@@ -1,8 +1,10 @@
 // Demo data so the frontend can be built before auth and the poller exist.
 // Run with `npm run db:seed`; safe to re-run (it replaces the demo data).
+import { auth } from "../src/lib/better-auth";
 import { prisma } from "../src/db";
 
-const DEMO_USER_ID = process.env["DEV_USER_ID"] ?? "demo-user";
+const DEMO_USER_EMAIL = process.env["DEMO_USER_EMAIL"] ?? "demo-login@example.com";
+const DEMO_USER_PASSWORD = process.env["DEMO_USER_PASSWORD"];
 
 // Starting prices for the fake history; not real quotes.
 const STOCKS = [
@@ -31,14 +33,47 @@ function randomWalk(start: number, count: number): number[] {
   return prices;
 }
 
-async function main() {
-  await prisma.user.upsert({
-    where: { id: DEMO_USER_ID },
-    update: {},
-    create: { id: DEMO_USER_ID, name: "Demo User", email: "demo@example.com" },
+async function getDemoUserId(): Promise<string> {
+  if (!DEMO_USER_PASSWORD) {
+    throw new Error("DEMO_USER_PASSWORD must be set before running the seed.");
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: DEMO_USER_EMAIL },
   });
 
-  await prisma.watch.deleteMany({ where: { userId: DEMO_USER_ID } });
+  if (existingUser) {
+    const credentialAccount = await prisma.account.findFirst({
+      where: {
+        userId: existingUser.id,
+        providerId: "credential",
+      },
+    });
+
+    if (!credentialAccount) {
+      throw new Error(
+        `User ${DEMO_USER_EMAIL} exists but has no Better Auth password account.`,
+      );
+    }
+
+    return existingUser.id;
+  }
+
+  const result = await auth.api.signUpEmail({
+    body: {
+      name: "Demo User",
+      email: DEMO_USER_EMAIL,
+      password: DEMO_USER_PASSWORD,
+    },
+  });
+
+  return result.user.id;
+}
+
+async function main() {
+  const demoUserId = await getDemoUserId();
+
+  await prisma.watch.deleteMany({ where: { userId: demoUserId } });
 
   const steps = (HISTORY_DAYS * 24 * 60) / STEP_MINUTES;
   const now = Date.now();
@@ -70,14 +105,14 @@ async function main() {
       data: {
         ...watch,
         createdAt: historyStart,
-        user: { connect: { id: DEMO_USER_ID } },
+        user: { connect: { id: demoUserId } },
         stock: { connect: { ticker } },
       },
     });
   }
 
   console.log(
-    `Seeded user "${DEMO_USER_ID}" with ${WATCHES.length} watches and ${steps} price points per stock.`,
+    `Seeded user "${DEMO_USER_EMAIL}" (ID: ${demoUserId}) with ${WATCHES.length} watches and ${steps} price points per stock.`,
   );
 }
 

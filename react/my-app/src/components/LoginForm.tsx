@@ -15,7 +15,7 @@ const empty_form: LoginFormData = {
 
 type LoginFormProps = {
 	createNew: boolean;
-	onSubmit: (payload: LoginFormData) => void;
+	onSubmit: (payload: LoginFormData) => Promise<void>;
 }
 
 export default function LoginForm({createNew, onSubmit }: LoginFormProps) {
@@ -38,9 +38,9 @@ export default function LoginForm({createNew, onSubmit }: LoginFormProps) {
 		if (submitting) return;
 		setSubmitting(true);
 		try {
-			onSubmit(form);
+				await onSubmit(form);
 		} finally {
-			setSubmitting(false);
+				setSubmitting(false);
 		}
 	}
 
@@ -69,7 +69,7 @@ export default function LoginForm({createNew, onSubmit }: LoginFormProps) {
         <input
           id="email"
           name="email"
-          type="text"
+          type="email"
 					className={ inputClass }
           value={form.email}
           disabled={submitting}
@@ -83,7 +83,7 @@ export default function LoginForm({createNew, onSubmit }: LoginFormProps) {
         <input
           id="password"
           name="password"
-          type="text"
+          type="password"
 					className={ inputClass }
           value={form.password}
           disabled={submitting}
@@ -97,7 +97,7 @@ export default function LoginForm({createNew, onSubmit }: LoginFormProps) {
 		    <input
 		    	id="confirm"
 		      name="confirm"
-		      type="text"
+		      type="password"
 					className={ inputClass }
 		      value={form.confirmPass}
 		      disabled={submitting}

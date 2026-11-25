@@ -5,6 +5,8 @@ import { errorHandler, notFoundHandler } from "./errors";
 import { buildOpenApiDocument } from "./openapi";
 import { watchesRouter } from "./watches/routes";
 import { notificationsRouter } from "./notifications/routes";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "./lib/better-auth";
 
 export interface AppOptions {
   resolveUserId: ResolveUserId;
@@ -16,6 +18,9 @@ export interface AppOptions {
  */
 export function createApp(options: AppOptions) {
   const app = express();
+
+  app.all("/api/auth/*splat", toNodeHandler(auth));
+
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
@@ -24,7 +29,6 @@ export function createApp(options: AppOptions) {
 
   app.use("/api/watches", requireUser(options.resolveUserId), watchesRouter);
   app.use("/api/alerts", requireUser(options.resolveUserId), notificationsRouter);
-
   const openApiDocument = buildOpenApiDocument();
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiDocument);

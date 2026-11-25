@@ -2,16 +2,25 @@ import WatchCard from "../components/WatchCard";
 import WatchForm from "../components/WatchForm";
 import Banner from "../components/Banner";
 import { useNavigate, useParams } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Watch, WatchPayload} from "../types";
 import { ButtonGroup } from "../components/ui/button-group";
 import { Button } from "../components/ui/button";
 import { pageContainerClass, errorMsgClass, msgClass, buttonClass, h2Class, errStatusMsgClass, statusMsgClass } from "../lib/ui";
+import { authClient } from "../lib/auth-client";
 
 export default function Dashboard() {
 	const params = useParams();
 	const navigate = useNavigate();
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const { data: session, isPending } = authClient.useSession();
 
+	useEffect(() => {
+			if (!isPending && !session) {
+					navigate("/");
+			}
+	}, [isPending, session, navigate]);
+	
 	const [watches, setWatches] = useState<Watch[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState(false);
@@ -21,26 +30,36 @@ export default function Dashboard() {
 
 	// Load watches on page refresh
 	useEffect(() => {
-		async function loadWatches() {
-			try {
-				const response = await fetch("/api/watches");
+			async function loadWatches() {
+					if (isPending) return;
 
-				if (!response.ok) {
-					throw new Error("Error loading watches")
-				}
-				const data = await response.json();
-				setWatches(data);
-			} catch {
-				setLoadError(true);
-			} finally {
-				setLoading(false);
+					if (!session) {
+							setLoading(false);
+							return;
+					}
+
+					try {
+							const response = await fetch("/api/watches");
+
+							if (!response.ok) {
+									throw new Error("Error loading watches");
+							}
+
+							const data = await response.json();
+							setWatches(data);
+					} catch {
+							setLoadError(true);
+					} finally {
+							setLoading(false);
+					}
 			}
-		}
-		loadWatches();
-	}, [])
+
+			loadWatches();
+	}, [isPending, session]);
 
 	// Live update watches every 10 seconds
 	useEffect(() => {
+		if (isPending || !session) return;
 		async function loadWatches() {
 			if (locked) return;
 			try {
@@ -66,10 +85,11 @@ export default function Dashboard() {
 		return () => {
 			clearInterval(intervalId);
 		}
-	}, [watches, locked]);
+	}, [watches, locked, isPending, session]);
 
 	async function handleLogout() {
-		navigate('/');
+			await authClient.signOut();
+			navigate("/");
 	}
 
 	async function handleCreate(payload: WatchPayload) {
@@ -119,12 +139,67 @@ export default function Dashboard() {
 
 	async function handleExport() {
 		if (locked) return;
-		return;
+		try {
+			setLocked(true);
+			const response = await fetch("/api/watches/portfolio.json");
+			if (!response.ok) {
+				throw new Error("Error downloading portfolio");
+			}
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = "portfolio.json";
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(url);
+			setStatusMsg("Downloaded portfolio.json");
+		} catch {
+			setStatusMsg("Error downloading portfolio");
+		} finally {
+			setLocked(false);
+		}
 	}
 
-	async function handleImport() {
+	function handleImport() {
 		if (locked) return;
-		return;
+		fileInputRef.current?.click();
+	}
+
+	async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+		const file = event.target.files?.[0];
+		event.target.value = "";
+		if (!file || locked) return;
+
+		try {
+			setLocked(true);
+			const rawText = await file.text();
+			const parsedBody = JSON.parse(rawText);
+			const response = await fetch("/api/watches/portfolio/import", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(parsedBody),
+			});
+			const data = await response.json().catch(() => null);
+			if (!response.ok) {
+				const detailMsg = Array.isArray(data?.details) && data.details.length > 0
+					? data.details.map((d: { message?: string; path?: string[] }) => d.message ?? JSON.stringify(d)).join(", ")
+					: data?.error ?? "Error uploading portfolio";
+				throw new Error(detailMsg);
+			}
+
+			const refreshResponse = await fetch("/api/watches");
+			if (refreshResponse.ok) {
+				const refreshedWatches = await refreshResponse.json();
+				setWatches(refreshedWatches);
+			}
+			setStatusMsg("Uploaded portfolio successfully");
+		} catch (err) {
+			setStatusMsg(err instanceof Error ? `Error uploading portfolio: ${err.message}` : "Error uploading portfolio");
+		} finally {
+			setLocked(false);
+		}
 	}
 
 	return (
@@ -151,10 +226,21 @@ export default function Dashboard() {
 					/>
 				)))}
 				{/*Upload/Download buttons*/}
-				{!loadError &&	<ButtonGroup>
-					<Button type='button' onClick={handleExport} disabled={locked} className={buttonClass}>Download Portfolio</Button>
-						<Button type='button' onClick={handleImport} disabled={locked} className={buttonClass}>Upload Portfolio</Button>
-				</ButtonGroup>}
+				{!loadError && (
+					<>
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept="application/json,.json"
+							onChange={handleFileChange}
+							className="hidden"
+						/>
+						<ButtonGroup>
+							<Button type='button' onClick={handleExport} disabled={locked} className={buttonClass}>Download Portfolio</Button>
+							<Button type='button' onClick={handleImport} disabled={locked} className={buttonClass}>Upload Portfolio</Button>
+						</ButtonGroup>
+					</>
+				)}
 				{/*Dismissable Status and Error messages*/}
 				{!loadError && statusMsg && <Button
 					type='button'
