@@ -277,7 +277,7 @@ export default function WatchDetails() {
 					<div className="flex-col justify-items-center space-y-5 mb-2">
 						{/*Pack ticker and subheader in a div as seperate elements so ticker can be styled seperately*/}
 						<div className="flex flex-wrap items-center justify-center gap-3">
-							<Logo logoUrl={watch.logoUrl} id={watch.id} ticker={watch.ticker}/>
+							<Logo logoUrl={watch.logoUrl} logoVersion={logoVersion} id={watch.id} ticker={watch.ticker}/>
 							<p className={`${tickerClass} lg:text-3xl text-2xl`}>{watch.ticker}</p>
 							<p className={h2Class}>Stock Watch Summary</p>
 							<input
