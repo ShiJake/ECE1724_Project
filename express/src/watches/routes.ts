@@ -9,6 +9,7 @@ import {
 } from "../storage/portfolio";
 import { serializePriceHistoryCsv } from "../storage/priceHistory";
 import {
+  deleteObject,
   downloadBinaryObject,
   getSpacesConfig,
   getWatchLogoObjectKey,
@@ -179,6 +180,8 @@ watchesRouter.post("/", async (req, res) => {
     },
     include: { stock: true },
   });
+  const updatedWatches = await listUserWatches(req.userId);
+  await persistPortfolioToSpacesIfConfigured(req.userId, updatedWatches);
   
   res.status(201).json(toWatchResponse(watch));
 });
@@ -266,12 +269,24 @@ watchesRouter.patch("/:id", async (req, res) => {
     include: { stock: true },
   });
 
+  const updatedWatches = await listUserWatches(req.userId);
+  await persistPortfolioToSpacesIfConfigured(req.userId, updatedWatches);
+
   res.json(toWatchResponse(watch));
 });
 
 watchesRouter.delete("/:id", async (req, res) => {
   const watch = await findOwnWatch(req);
+
+  if (watch.logoUrl && getSpacesConfig()) {
+    try {
+      await deleteObject(watch.logoUrl);
+    } catch (error) {
+      console.error("Failed to delete watch logo from Spaces:", error);
+    }
+  }
   await prisma.watch.delete({ where: { id: watch.id } });
-  
+  const remainingWatches = await listUserWatches(req.userId);
+  await persistPortfolioToSpacesIfConfigured(req.userId, remainingWatches);
   res.status(204).end();
 });

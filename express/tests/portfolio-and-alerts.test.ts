@@ -91,7 +91,7 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
     );
   });
 
-  it("saves portfolio to Spaces on export and import, but not on watch create or delete", async () => {
+  it("syncs portfolio to Spaces on watch create, update, delete, import, and export under Option 1", async () => {
     enableMockSpacesConfig();
     const sendSpy = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({} as never);
     const userId = "spaces-timing-user";
@@ -107,19 +107,20 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
       .send({ ticker: "AAPL", purchasePrice: 150, gainPct: 10, lossPct: -5 })
       .expect(201);
 
-    expect(sendSpy).not.toHaveBeenCalled();
+    expect(sendSpy).toHaveBeenCalledTimes(1);
 
     await asUser(testApp, userId)
-      .delete(`/api/watches/${created.body.id}`)
-      .expect(204);
+      .patch(`/api/watches/${created.body.id}`)
+      .send({ gainPct: 20 })
+      .expect(200);
 
-    expect(sendSpy).not.toHaveBeenCalled();
+    expect(sendSpy).toHaveBeenCalledTimes(2);
 
     await asUser(testApp, userId)
       .get("/api/watches/portfolio.json")
       .expect(200);
 
-    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(sendSpy).toHaveBeenCalledTimes(3);
 
     await asUser(testApp, userId)
       .post("/api/watches/portfolio/import")
@@ -129,7 +130,13 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
       })
       .expect(201);
 
-    expect(sendSpy).toHaveBeenCalledTimes(2);
+     expect(sendSpy).toHaveBeenCalledTimes(4);
+
+    await asUser(testApp, userId)
+      .delete(`/api/watches/${created.body.id}`)
+      .expect(204);
+
+    expect(sendSpy).toHaveBeenCalledTimes(5);
   });
 
   it("does not return 500 when Spaces fails during export, import, or delete", async () => {
@@ -165,7 +172,7 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
       .expect(204);
   });
 
-    it("imports valid watches via POST /api/watches/portfolio/import and rejects invalid payloads with structured Zod details", async () => {
+  it("imports valid watches via POST /api/watches/portfolio/import and rejects invalid payloads with structured Zod details", async () => {
     const userId = "portfolio-import-user";
     await prisma.user.upsert({
       where: { id: userId },
@@ -309,6 +316,8 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
       .send({ ticker: "AAPL", purchasePrice: 100, gainPct: 10, lossPct: -5 })
       .expect(201);
 
+    sendSpy.mockClear();
+
     vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ c: 105 }), {
@@ -320,5 +329,121 @@ describe("Portfolio export, import, prices.csv, and alert recipient behavior", (
     await runPricePoll(async () => {});
 
     expect(sendSpy).not.toHaveBeenCalled();
+  });
+
+  it("syncs portfolio to Spaces on watch create, update, delete, import, and export under Option 1", async () => {
+    enableMockSpacesConfig();
+    const sendSpy = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({} as never);
+    const userId = "option1-sync-user";
+
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: { email: "option1@example.com", name: "Option 1 User" },
+      create: { id: userId, email: "option1@example.com", name: "Option 1 User" },
+    });
+
+    const created = await asUser(testApp, userId)
+      .post("/api/watches")
+      .send({ ticker: "AAPL", purchasePrice: 150, gainPct: 10, lossPct: -5 })
+      .expect(201);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+
+    await asUser(testApp, userId)
+      .patch(`/api/watches/${created.body.id}`)
+      .send({ gainPct: 20 })
+      .expect(200);
+    expect(sendSpy).toHaveBeenCalledTimes(2);
+
+    await asUser(testApp, userId)
+      .get("/api/watches/portfolio.json")
+      .expect(200);
+    expect(sendSpy).toHaveBeenCalledTimes(3);
+
+    await asUser(testApp, userId)
+      .post("/api/watches/portfolio/import")
+      .send({
+        version: 1,
+        watches: [{ ticker: "MSFT", purchasePrice: 400, gainPct: 12, lossPct: -6 }],
+      })
+      .expect(201);
+    expect(sendSpy).toHaveBeenCalledTimes(4);
+
+    await asUser(testApp, userId)
+      .delete(`/api/watches/${created.body.id}`)
+      .expect(204);
+    expect(sendSpy).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps database and export truthful even when Spaces uploads finish out of order", async () => {
+    enableMockSpacesConfig();
+    const userId = "race-check-user";
+
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: { email: "race@example.com", name: "Race User" },
+      create: { id: userId, email: "race@example.com", name: "Race User" },
+    });
+
+    const tsla = await asUser(testApp, userId)
+      .post("/api/watches")
+      .send({ ticker: "TSLA", purchasePrice: 250, gainPct: 15, lossPct: -8 })
+      .expect(201);
+
+    let releaseFirstUpload!: () => void;
+    const firstUploadGate = new Promise<void>((resolve) => {
+      releaseFirstUpload = resolve;
+    });
+
+    let sendCalls = 0;
+    vi.spyOn(S3Client.prototype, "send").mockImplementation(async () => {
+      sendCalls += 1;
+      if (sendCalls === 1) {
+        await firstUploadGate;
+      }
+      return {} as never;
+    });
+
+    const addNvdaPromise = asUser(testApp, userId)
+      .post("/api/watches")
+      .send({ ticker: "NVDA", purchasePrice: 120, gainPct: 10, lossPct: -5 });
+
+    const deleteTslaPromise = asUser(testApp, userId)
+      .delete(`/api/watches/${tsla.body.id}`);
+    
+    const [addRes, deleteRes] = await Promise.all([
+      addNvdaPromise,
+      deleteTslaPromise,
+      (async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        releaseFirstUpload();
+      })(),
+    ]);
+
+  
+    expect(addRes.status).toBe(201);
+    expect(deleteRes.status).toBe(204);
+
+    const listRes = await asUser(testApp, userId).get("/api/watches").expect(200);
+    expect(listRes.body.map((w: { ticker: string }) => w.ticker)).toEqual(["NVDA"]);
+
+    const secondDeleteRes = await asUser(testApp, userId).delete(`/api/watches/${tsla.body.id}`);
+    expect(secondDeleteRes.status).toBe(404);
+
+    const importRes = await asUser(testApp, userId)
+      .post("/api/watches/portfolio/import")
+      .send({
+        version: 1,
+        watches: [{ ticker: "AAPL", purchasePrice: 180, gainPct: 10, lossPct: -5 }],
+      })
+      .expect(201);
+    expect(importRes.body.map((w: { ticker: string }) => w.ticker)).toEqual(["AAPL"]);
+
+    const exportRes = await asUser(testApp, userId)
+      .get("/api/watches/portfolio.json")
+      .expect(200);
+    expect(exportRes.body.watches.map((w: { ticker: string }) => w.ticker)).toEqual([
+      "AAPL",
+      "NVDA",
+    ]);
   });
 });

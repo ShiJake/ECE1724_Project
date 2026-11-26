@@ -189,3 +189,20 @@ describe("GET /api/watches", () => {
     expect(typeof res.body[0].priceUpdatedAt).toBe("string");
   });
 });
+
+describe("DELETE /api/watches/:id", () => {
+  it("deletes a watch, removes it from the list, and returns 404 on a second delete", async () => {
+    const created = await asUser(ALICE).post("/api/watches").send(validWatch);
+    expect(created.status).toBe(201);
+
+    const firstDelete = await asUser(ALICE).delete(`/api/watches/${created.body.id}`);
+    expect(firstDelete.status).toBe(204);
+
+    const listAfterDelete = await asUser(ALICE).get("/api/watches");
+    expect(listAfterDelete.status).toBe(200);
+    expect(listAfterDelete.body).toEqual([]);
+
+    const secondDelete = await asUser(ALICE).delete(`/api/watches/${created.body.id}`);
+    expect(secondDelete.status).toBe(404);
+  });
+});
