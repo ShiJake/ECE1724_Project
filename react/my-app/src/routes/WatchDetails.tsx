@@ -2,6 +2,14 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { type priceData, type Watch, type WatchPayload} from "../types";
 import WatchForm from "../components/WatchForm";
+import ChangePctLabel from "../components/ChangePctLabel";
+import Banner from "../components/Banner";
+import { Button } from "../components/ui/button";
+import AlertLabel from "../components/AlertLabel";
+import { Switch } from "../components/ui/switch";
+import { Chart } from "../components/Chart";
+import Logo from "../components/Logo";
+import { authClient } from "../lib/auth-client";
 import {
 	pageContainerClass,
 	msgClass,
@@ -15,13 +23,6 @@ import {
 	errStatusMsgClass,
 	statusMsgClass,
 } from "../lib/ui";
-import ChangePctLabel from "../components/ChangePctLabel";
-import Banner from "../components/Banner";
-import { Button } from "../components/ui/button";
-import AlertLabel from "../components/AlertLabel";
-import { Switch } from "../components/ui/switch";
-import { Chart } from "../components/Chart";
-import { authClient } from "../lib/auth-client";
 
 // This will all be fetched from backend using Watch id number passed in as route param
 const empty_watch: Watch = {
@@ -276,17 +277,7 @@ export default function WatchDetails() {
 					<div className="flex-col justify-items-center space-y-5 mb-2">
 						{/*Pack ticker and subheader in a div as seperate elements so ticker can be styled seperately*/}
 						<div className="flex flex-wrap items-center justify-center gap-3">
-							{watch.logoUrl ? (
-								<img
-									src={`/api/watches/${watch.id}/logo?v=${logoVersion}`}
-									alt={`${watch.ticker} logo`}
-									className="w-12 h-12 rounded-full object-cover border-2 border-cyan-900 bg-white shrink-0"
-								/>
-							) : (
-								<div className="w-12 h-12 rounded-full border-2 border-cyan-900 bg-cyan-800 text-white font-bold flex items-center justify-center shrink-0">
-									{watch.ticker.slice(0, 2).toUpperCase()}
-								</div>
-							)}
+							<Logo logoUrl={watch.logoUrl} id={watch.id} ticker={watch.ticker}/>
 							<p className={`${tickerClass} lg:text-3xl text-2xl`}>{watch.ticker}</p>
 							<p className={h2Class}>Stock Watch Summary</p>
 							<input

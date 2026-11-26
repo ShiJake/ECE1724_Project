@@ -2,6 +2,7 @@ import { FiAlertCircle } from "react-icons/fi";
 import {Button} from "./ui/button";
 import { alertIconClass, clickableText, tickerClass } from "../lib/ui";
 import ChangePctLabel from "./ChangePctLabel";
+import Logo from "./Logo";
 
 type WatchCardProps = {
 	id: number;
@@ -28,17 +29,7 @@ export default function WatchCard({
 		<div className="flex justify-between md:w-2/3 w-full p-3 border-4 rounded-3xl border-cyan-900 bg-blue-300">
 			{/* Stack ticker+alert  above view details link*/}
 			<div className="flex items-center space-x-3">
-				{logoUrl ? (
-					<img
-						src={`/api/watches/${id}/logo`}
-						alt={`${ticker} logo`}
-						className="w-10 h-10 rounded-full object-cover border-2 border-cyan-900 bg-white shrink-0"
-					/>
-				) : (
-					<div className="w-10 h-10 rounded-full border-2 border-cyan-900 bg-cyan-800 text-white font-bold flex items-center justify-center shrink-0">
-						{ticker.slice(0, 2).toUpperCase()}
-					</div>
-				)}
+				<Logo logoUrl={logoUrl} id={id} ticker={ticker} />
 				<div className="flex-col">
 				{/* Pack ticker and alert icon together */}
 				<div className="flex justify-center">
