@@ -38,7 +38,7 @@ export function Chart({ data, gainThresh, lossThresh, handleDownload }: ChartPro
     <Card className="w-5/6 bg-gray-800 text-gray-300">
       <CardHeader>
         <CardTitle className="font-bold text-3xl">Price History Data</CardTitle>
-        <CardDescription className="text-lg text-gray-400">{`${data[0].date} - ${data.at(-1).date}`}</CardDescription>
+        <CardDescription className="text-lg text-gray-400">{`${data[0].date} - ${data[data.length-1].date}`}</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="aspect-3/1">
